@@ -7,8 +7,7 @@ This project is split into two deployable services:
 
 Architecture docs:
 
-- `docs/ledgent-ap-platform.md`
-- `docs/ledgent-ap-github-issues.md`
+- `docs/product-architecture.md`
 
 ## Live Production URLs
 
@@ -74,6 +73,7 @@ Production guardrails:
 - Goals, settings, search queries, and uploads are validated
 - Uploads are limited to readable PDF, DOCX, text, markdown, CSV, and JSON files up to 10 MB
 - Ollama waits are bounded so unreachable local models do not hang the service
+- Mock AP endpoints and hardcoded invoice/vendor datasets are not shipped in the production API
 
 ## Ollama: Railway
 
@@ -177,15 +177,5 @@ Verified on June 7, 2026:
 - `/api/health/ready` returns `ready` with `qwen2.5:0.5b` loaded through `ollama.railway.internal`
 - `/api/ollama/test` returns `OK.`
 - General questions are answered by Ollama through the backend with no AP demo response and no fallback warning text
-- Missing-source-data questions return a truthful request for source data instead of invented invoice/vendor specifics
+- Missing-source-data questions return a truthful request for source data instead of invented records or risk details
 - Mobile viewport has no horizontal overflow
-
-Additional AP endpoints:
-
-```text
-/api/ap/overview
-/api/ap/invoices
-/api/ap/agents
-/api/ap/matching/run
-/api/ap/architecture
-```

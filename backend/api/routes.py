@@ -10,13 +10,6 @@ from agents.manager import manager_agent
 from database.models import AgentLog, AppSetting, Conversation, Document, Memory, Task
 from database.session import get_db
 from models.schemas import GoalRequest, SettingsIn
-from services.ap_platform import (
-    ap_overview,
-    architecture_snapshot,
-    list_ap_invoices,
-    list_finance_agents,
-    run_matching,
-)
 from services.conversations import serialize_conversation
 from services.json_utils import dumps
 from services.knowledge import add_document, list_documents, search_knowledge
@@ -87,31 +80,6 @@ async def ollama_test():
         "model": status["configured_model"],
         "response": " ".join(response.strip().split())[:500],
     }
-
-
-@router.get("/ap/overview")
-def accounts_payable_overview():
-    return ap_overview()
-
-
-@router.get("/ap/invoices")
-def accounts_payable_invoices():
-    return list_ap_invoices()
-
-
-@router.get("/ap/agents")
-def accounts_payable_agents():
-    return list_finance_agents()
-
-
-@router.post("/ap/matching/run")
-def accounts_payable_matching(payload: dict):
-    return run_matching(payload)
-
-
-@router.get("/ap/architecture")
-def accounts_payable_architecture():
-    return architecture_snapshot()
 
 
 @router.post("/agent/run")

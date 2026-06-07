@@ -61,4 +61,7 @@ GET  /api/settings
 - Missing-source-data questions ask for the needed data instead of inventing vendor, invoice, or risk details.
 - The UI removes the old AP dashboard, metrics, logo block, side panels, and finance brief from the home screen.
 
-Deployment details live in `DEPLOYMENT.md`.
+Docs:
+
+- `DEPLOYMENT.md`
+- `docs/product-architecture.md`

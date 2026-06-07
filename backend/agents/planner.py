@@ -1,7 +1,7 @@
 from typing import Any, Dict, List
 
 
-def fallback_plan(goal: str) -> List[Dict[str, Any]]:
+def default_plan(goal: str) -> List[Dict[str, Any]]:
     lower = goal.lower()
     if any(token in lower for token in ("calculate", "math", "percent", "ratio", "total", "+", "-", "*", "/", "%")):
         return [
@@ -24,9 +24,9 @@ def fallback_plan(goal: str) -> List[Dict[str, Any]]:
     ]
 
 
-def normalize_plan(plan: Any, fallback: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def normalize_plan(plan: Any, default_tasks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     if not isinstance(plan, list):
-        return fallback
+        return default_tasks
 
     normalized: List[Dict[str, Any]] = []
     for index, raw_task in enumerate(plan[:6], start=1):
@@ -40,9 +40,9 @@ def normalize_plan(plan: Any, fallback: List[Dict[str, Any]]) -> List[Dict[str, 
             priority = "medium"
         normalized.append({"id": index, "title": title[:140], "priority": priority})
 
-    return normalized if len(normalized) >= 3 else fallback
+    return normalized if len(normalized) >= 3 else default_tasks
 
 
 class PlannerAgent:
     async def plan(self, goal: str, context: Dict[str, Any]) -> List[Dict[str, Any]]:
-        return fallback_plan(goal)
+        return default_plan(goal)

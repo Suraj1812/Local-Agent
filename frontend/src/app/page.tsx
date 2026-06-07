@@ -1,10 +1,10 @@
 import { AppShell } from "@/components/layout/app-shell";
-import { APCommandCenter } from "@/components/ap/ap-command-center";
+import { ChatWorkspace } from "@/components/chat/chat-workspace";
 
 export default function Home() {
   return (
     <AppShell>
-      <APCommandCenter />
+      <ChatWorkspace />
     </AppShell>
   );
 }

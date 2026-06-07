@@ -25,7 +25,5 @@ Return concise markdown with useful code when relevant.
                 temperature=context["settings"]["temperature"],
             )
             return {"response": response}
-        except Exception:
-            return {
-                "response": "Use a minimal implementation, validate inputs, handle empty states, and add focused tests."
-            }
+        except Exception as exc:
+            return {"error": f"Code generation could not reach the local model: {str(exc)[:180]}"}
