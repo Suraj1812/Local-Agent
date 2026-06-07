@@ -24,7 +24,7 @@ export default function Icon() {
           width: "100%"
         }}
       >
-        AI
+        AP
       </div>
     ),
     size

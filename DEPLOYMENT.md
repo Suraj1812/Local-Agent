@@ -2,8 +2,13 @@
 
 This project is split into two deployable services:
 
-- `backend/`: FastAPI API deployed on Railway
-- `frontend/`: Next.js app deployed on Vercel
+- `backend/`: FastAPI finance/AP API deployed on Railway
+- `frontend/`: Next.js AP automation command center deployed on Vercel
+
+Architecture docs:
+
+- `docs/ledgent-ap-platform.md`
+- `docs/ledgent-ap-github-issues.md`
 
 ## Live Production URLs
 
@@ -115,3 +120,13 @@ Verified on June 7, 2026:
 - Backend settings, dashboard, knowledge, logs, conversations, and agent run endpoints respond
 - Agent streaming and fallback paths work when cloud Ollama is not reachable
 - Mobile viewport has no horizontal overflow
+
+Additional AP endpoints:
+
+```text
+/api/ap/overview
+/api/ap/invoices
+/api/ap/agents
+/api/ap/matching/run
+/api/ap/architecture
+```

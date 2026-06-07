@@ -14,17 +14,17 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "FirstAI",
-    template: "%s | FirstAI"
+    default: "FirstAI AP Automation",
+    template: "%s | FirstAI AP"
   },
-  description: "Fast local AI agent workspace with planning, memory, and file-aware chat.",
-  applicationName: "FirstAI",
+  description: "AI-powered accounts payable automation for invoice matching, exceptions, journal posting, and ERP sync.",
+  applicationName: "FirstAI AP",
   icons: {
     icon: "/icon"
   },
   openGraph: {
-    title: "FirstAI",
-    description: "Fast local AI agent workspace with planning, memory, and file-aware chat.",
+    title: "FirstAI AP Automation",
+    description: "AI-powered accounts payable automation for invoice matching, exceptions, journal posting, and ERP sync.",
     type: "website"
   }
 };

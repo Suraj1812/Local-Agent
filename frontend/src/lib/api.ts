@@ -1,4 +1,14 @@
-import type { Conversation, Dashboard, DocumentItem, LogEntry, Settings } from "@/lib/types";
+import type {
+  APInvoice,
+  APMatchingResult,
+  APOverview,
+  Conversation,
+  Dashboard,
+  DocumentItem,
+  FinanceAgent,
+  LogEntry,
+  Settings
+} from "@/lib/types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api";
 const REQUEST_TIMEOUT_MS = 45000;
@@ -53,6 +63,14 @@ export const api = {
       body: JSON.stringify(settings)
     }),
   logs: () => request<LogEntry[]>("/logs"),
+  apOverview: () => request<APOverview>("/ap/overview"),
+  apInvoices: () => request<APInvoice[]>("/ap/invoices"),
+  apAgents: () => request<FinanceAgent[]>("/ap/agents"),
+  runAPMatching: (payload: Record<string, unknown>) =>
+    request<APMatchingResult>("/ap/matching/run", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
   documents: () => request<DocumentItem[]>("/knowledge"),
   uploadDocument: (file: File) => {
     const form = new FormData();

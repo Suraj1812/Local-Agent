@@ -1,15 +1,34 @@
-# FirstAI Local Agent
+# FirstAI AP Automation
 
-FirstAI is a local, self-hosted agentic AI application built with Next.js 15, FastAPI, SQLite, SQLAlchemy, Pydantic, and Ollama. It uses no paid AI APIs and does not depend on LangChain.
+FirstAI is a local-first AI finance platform redesigned for Accounts Payable automation. It demonstrates invoice ingestion, invoice-to-PO matching, 2-way and 3-way matching, exception detection, journal preview, ERP sync readiness, audit-oriented data models, and specialized finance agents.
+
+The product direction is aligned with autonomous finance platforms such as Ledgent.AI: AI agents that understand documents, apply finance policy, resolve exceptions, and prepare ERP execution with auditability.
 
 ## Stack
 
 - Frontend: Next.js 15 App Router, TypeScript, Tailwind CSS, Zustand, shadcn-style UI primitives
-- Backend: Python, FastAPI, SQLite, SQLAlchemy, Pydantic
+- Backend: Python, FastAPI, SQLite today with PostgreSQL target, SQLAlchemy, Pydantic
 - AI brain: Ollama with local models such as DeepSeek-R1, Llama 3, and Qwen
-- Agent framework: custom Manager, Planner, Executor, and Memory agents
+- Agent framework: custom Manager, Planner, Executor, Memory, plus AP-specialized agent surfaces
+- Deployment: Vercel frontend and Railway backend
 
-## Setup
+## AP Modules
+
+- Invoice Upload
+- Invoice OCR and Document Intelligence
+- Vendor Management
+- Purchase Orders
+- Goods Receipts
+- Invoice Matching
+- Exception Center
+- Approval Workflows
+- Journal Entries
+- ERP Sync
+- Audit Logs
+- Analytics Dashboard
+- Agent Monitoring
+
+## Local Setup
 
 Install Ollama and pull at least one model:
 
@@ -32,9 +51,27 @@ npm run dev
 - Frontend: http://localhost:3000
 - Backend: http://localhost:8000/api
 
-## Local-Only Behavior
+## Key API Endpoints
 
-- Conversations, tasks, memories, logs, and knowledge documents are stored in `storage/firstai.db`.
-- PDF, DOCX, Markdown, and TXT uploads are parsed locally.
-- Knowledge search uses a lightweight local hashed embedding index stored in SQLite.
-- If Ollama is not running, the app still works with a deterministic local fallback so the agent workflow remains visible.
+```text
+GET  /api/health
+GET  /api/ap/overview
+GET  /api/ap/invoices
+GET  /api/ap/agents
+POST /api/ap/matching/run
+GET  /api/ap/architecture
+POST /api/agent/stream
+POST /api/knowledge/upload
+```
+
+## Architecture Docs
+
+- `docs/ledgent-ap-platform.md`
+- `docs/ledgent-ap-github-issues.md`
+
+## Local-First Behavior
+
+- Conversations, tasks, memories, logs, and knowledge documents are stored locally.
+- PDF, DOCX, Markdown, CSV, JSON, and TXT uploads are parsed locally.
+- Knowledge search uses a lightweight local hashed embedding index.
+- If Ollama is not running, the app still works with deterministic fallback planning and execution.
