@@ -5,6 +5,13 @@ from services.ollama import ollama_service
 
 def fallback_plan(goal: str) -> List[Dict[str, Any]]:
     lower = goal.lower()
+    if is_accounts_payable_goal(goal):
+        return [
+            {"id": 1, "title": "Review invoice risk signals", "priority": "high"},
+            {"id": 2, "title": "Check PO and receipt matching", "priority": "high"},
+            {"id": 3, "title": "Identify posting blockers", "priority": "medium"},
+            {"id": 4, "title": "Return AP recommendation", "priority": "medium"},
+        ]
     if "code" in lower or "build" in lower or "login" in lower:
         return [
             {"id": 1, "title": "Analyze the software request", "priority": "high"},
@@ -25,6 +32,12 @@ def fallback_plan(goal: str) -> List[Dict[str, Any]]:
         {"id": 3, "title": "Execute tasks with tools", "priority": "medium"},
         {"id": 4, "title": "Evaluate and respond", "priority": "medium"},
     ]
+
+
+def is_accounts_payable_goal(goal: str) -> bool:
+    terms = ("accounts payable", "invoice", "ap ", "vendor", "po", "purchase order", "erp", "journal", "risk")
+    normalized = f" {goal.lower()} "
+    return any(term in normalized for term in terms)
 
 
 def normalize_plan(plan: Any, fallback: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -49,6 +62,8 @@ def normalize_plan(plan: Any, fallback: List[Dict[str, Any]]) -> List[Dict[str, 
 class PlannerAgent:
     async def plan(self, goal: str, context: Dict[str, Any]) -> List[Dict[str, Any]]:
         fallback = fallback_plan(goal)
+        if is_accounts_payable_goal(goal):
+            return fallback
         prompt = f"""
 You are Planner Agent in a local agentic AI system.
 Return only JSON, no prose. Create 3 to 6 tasks with id, title, priority.

@@ -20,10 +20,19 @@ DEFAULT_AGENTS = {
     "memory": True,
 }
 
+LEGACY_DEFAULT_MODELS = {"llama3", "llama3.2:3b"}
+
 
 def ensure_settings(db: Session) -> AppSetting:
     row = db.get(AppSetting, 1)
     if row:
+        settings = get_settings()
+        if row.model not in settings.supported_models or (
+            row.model in LEGACY_DEFAULT_MODELS and row.model != settings.default_model
+        ):
+            row.model = settings.default_model
+            db.commit()
+            db.refresh(row)
         return row
 
     settings = get_settings()
@@ -45,12 +54,16 @@ def ensure_settings(db: Session) -> AppSetting:
 def settings_out(db: Session) -> Dict:
     row = ensure_settings(db)
     settings = get_settings()
+    active_model = row.model if row.model in settings.supported_models else settings.default_model
+    if settings.require_ollama:
+        active_model = settings.default_model
     return {
-        "model": row.model,
+        "model": active_model,
         "temperature": row.temperature,
         "memory_limit": row.memory_limit,
         "theme": "light",
         "tools_enabled": loads(row.tools_enabled_json, DEFAULT_TOOLS),
         "agent_config": loads(row.agent_config_json, DEFAULT_AGENTS),
         "supported_models": settings.supported_models,
+        "require_ollama": settings.require_ollama,
     }

@@ -108,6 +108,7 @@ class SettingsOut(BaseModel):
     tools_enabled: Dict[str, bool]
     agent_config: Dict[str, bool]
     supported_models: List[str]
+    require_ollama: bool = False
 
 
 class DocumentOut(BaseModel):

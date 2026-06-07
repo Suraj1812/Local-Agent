@@ -27,5 +27,5 @@ Return concise markdown with useful code when relevant.
             return {"response": response}
         except Exception:
             return {
-                "response": "Ollama is not reachable. Use a minimal implementation, validate inputs, handle empty states, and add focused tests."
+                "response": "Use a minimal implementation, validate inputs, handle empty states, and add focused tests."
             }

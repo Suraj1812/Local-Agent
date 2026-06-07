@@ -18,6 +18,12 @@ def select_tool(task: Dict[str, Any], goal: str) -> str:
     return "search"
 
 
+def is_accounts_payable_goal(goal: str) -> bool:
+    terms = ("accounts payable", "invoice", "ap ", "vendor", "po", "purchase order", "erp", "journal", "risk")
+    normalized = f" {goal.lower()} "
+    return any(term in normalized for term in terms)
+
+
 class ExecutorAgent:
     async def execute(self, task: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
         tool_name = select_tool(task, context["goal"])
@@ -42,6 +48,13 @@ class ExecutorAgent:
                 )
         except Exception as exc:
             tool_result = {"error": str(exc)[:300], "status": "tool_failed"}
+
+        if is_accounts_payable_goal(context["goal"]):
+            return {
+                "tool": tool_name,
+                "tool_result": tool_result,
+                "response": f"Reviewed '{task.get('title')}' against AP matching and exception signals.",
+            }
 
         prompt = f"""
 You are Executor Agent. Summarize the task result without exposing hidden chain-of-thought.

@@ -21,6 +21,7 @@ from services.conversations import serialize_conversation
 from services.json_utils import dumps
 from services.knowledge import add_document, list_documents, search_knowledge
 from services.logging import list_logs
+from services.ollama import ollama_service
 from services.preferences import DEFAULT_AGENTS, DEFAULT_TOOLS, ensure_settings, settings_out
 from services.settings import get_settings
 from tools.registry import tool_registry
@@ -42,6 +43,50 @@ ALLOWED_UPLOAD_MIME_PARTS = {
 @router.get("/health")
 def health():
     return {"status": "ok", "mode": "finance-ap", "service": "firstai-backend"}
+
+
+@router.get("/health/ready")
+async def readiness():
+    settings = get_settings()
+    ollama = await ollama_service.status()
+    ready = bool(ollama["available"] and ollama["model_ready"])
+    payload = {
+        "status": "ready" if ready or not settings.require_ollama else "degraded",
+        "service": "firstai-backend",
+        "require_ollama": settings.require_ollama,
+        "ollama": ollama,
+    }
+    if settings.require_ollama and not ready:
+        raise HTTPException(status_code=503, detail=payload)
+    return payload
+
+
+@router.get("/ollama/health")
+async def ollama_health():
+    return await ollama_service.status()
+
+
+@router.get("/ollama/test")
+async def ollama_test():
+    status = await ollama_service.status()
+    if not status["available"] or not status["model_ready"]:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "message": "AI model service is not ready.",
+                "ollama": status,
+            },
+        )
+    response = await ollama_service.generate(
+        "Reply with OK.",
+        temperature=0.1,
+        num_predict=8,
+    )
+    return {
+        "status": "ok",
+        "model": status["configured_model"],
+        "response": " ".join(response.strip().split())[:500],
+    }
 
 
 @router.get("/ap/overview")
@@ -71,16 +116,34 @@ def accounts_payable_architecture():
 
 @router.post("/agent/run")
 async def run_agent(payload: GoalRequest, db: Session = Depends(get_db)):
+    await _ensure_ai_ready_if_required()
     return await manager_agent.run(db, payload.goal, payload.conversation_id)
 
 
 @router.post("/agent/stream")
 async def stream_agent(payload: GoalRequest, db: Session = Depends(get_db)):
+    await _ensure_ai_ready_if_required()
+
     async def event_stream():
         async for event in manager_agent.run_events(db, payload.goal, payload.conversation_id):
             yield f"data: {json.dumps(event, default=str)}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+async def _ensure_ai_ready_if_required():
+    settings = get_settings()
+    if not settings.require_ollama:
+        return
+    status = await ollama_service.status()
+    if not status["available"] or not status["model_ready"]:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "message": "AI model service is not ready.",
+                "ollama": status,
+            },
+        )
 
 
 @router.get("/conversations")
