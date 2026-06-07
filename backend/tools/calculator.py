@@ -1,0 +1,33 @@
+import ast
+import operator
+from typing import Any, Dict
+
+OPS = {
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+    ast.Div: operator.truediv,
+    ast.Pow: operator.pow,
+    ast.Mod: operator.mod,
+    ast.USub: operator.neg,
+}
+
+
+def _eval(node):
+    if isinstance(node, ast.Num):
+        return node.n
+    if isinstance(node, ast.BinOp) and type(node.op) in OPS:
+        return OPS[type(node.op)](_eval(node.left), _eval(node.right))
+    if isinstance(node, ast.UnaryOp) and type(node.op) in OPS:
+        return OPS[type(node.op)](_eval(node.operand))
+    raise ValueError("Unsupported expression")
+
+
+class CalculatorTool:
+    name = "calculator"
+    description = "Math operations and statistics"
+
+    async def execute(self, payload: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
+        expression = payload.get("expression") or "0"
+        parsed = ast.parse(expression, mode="eval")
+        return {"expression": expression, "result": _eval(parsed.body)}
