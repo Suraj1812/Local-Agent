@@ -43,6 +43,15 @@ Start command:
 uvicorn main:app --host 0.0.0.0 --port ${PORT}
 ```
 
+Manual deploy command from the repo:
+
+```bash
+cd backend
+railway up . --path-as-root --detach --service firstai-backend
+```
+
+`--path-as-root` is important because the repository root also has a Node package for local orchestration. Without it, Railway can infer the wrong runtime.
+
 Production guardrails:
 
 - CORS allows the Vercel frontend and Vercel preview deployments
