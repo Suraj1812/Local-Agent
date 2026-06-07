@@ -1,0 +1,97 @@
+@import "tailwindcss";
+@import "highlight.js/styles/github-dark.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: "Geist", "Geist Fallback", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", "Geist Mono Fallback", ui-monospace, monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+:root {
+  --background: #f7f7f4;
+  --foreground: #1b1d20;
+  --card: #ffffff;
+  --card-foreground: #1b1d20;
+  --popover: #ffffff;
+  --popover-foreground: #1b1d20;
+  --primary: #0f766e;
+  --primary-foreground: #f8fffd;
+  --secondary: #ecebe4;
+  --secondary-foreground: #252525;
+  --muted: #ebe9e1;
+  --muted-foreground: #66645b;
+  --accent: #b45309;
+  --accent-foreground: #fff8ed;
+  --destructive: #be123c;
+  --border: #dedbd0;
+  --input: #d8d5cb;
+  --ring: #0f766e;
+}
+
+.dark {
+  --background: #111312;
+  --foreground: #f3f4ef;
+  --card: #181b1a;
+  --card-foreground: #f3f4ef;
+  --popover: #181b1a;
+  --popover-foreground: #f3f4ef;
+  --primary: #14b8a6;
+  --primary-foreground: #062321;
+  --secondary: #242724;
+  --secondary-foreground: #f0efe9;
+  --muted: #252823;
+  --muted-foreground: #a9aaa2;
+  --accent: #f59e0b;
+  --accent-foreground: #281800;
+  --destructive: #fb7185;
+  --border: #30352f;
+  --input: #3a3f38;
+  --ring: #2dd4bf;
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  background: var(--background);
+}
+
+body {
+  min-height: 100vh;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}
+
+button,
+textarea,
+input,
+select {
+  font: inherit;
+}
+
+pre {
+  overflow-x: auto;
+  border-radius: 8px;
+  padding: 1rem;
+}

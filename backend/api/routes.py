@@ -23,7 +23,7 @@ router = APIRouter()
 
 @router.get("/health")
 def health():
-    return {"status": "ok", "mode": "local"}
+    return {"status": "ok", "mode": "local", "service": "firstai-backend"}
 
 
 @router.post("/agent/run")

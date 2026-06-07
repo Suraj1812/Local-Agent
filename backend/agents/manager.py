@@ -145,13 +145,14 @@ class ManagerAgent:
         yield {"type": "final", "payload": final_payload}
 
     async def _final_answer(self, goal: str, plan: List[Dict[str, Any]], results: List[str], settings: Dict[str, Any]) -> str:
+        joined_results = "\n\n".join(results)
         prompt = f"""
 You are Manager Agent for a local autonomous assistant.
 Write the final answer in markdown.
 Goal: {goal}
 Plan: {json.dumps(plan)}
 Task results:
-{"\n\n".join(results)}
+{joined_results}
 
 Be useful and direct. Do not reveal hidden chain-of-thought.
 """

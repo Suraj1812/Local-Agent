@@ -10,10 +10,22 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="FirstAI Local Agent API", version="1.0.0")
 
+allowed_origins = {
+    settings.frontend_origin,
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+}
+
+for origin in settings.allowed_origins.split(","):
+    clean = origin.strip()
+    if clean:
+        allowed_origins.add(clean)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_origin, "http://127.0.0.1:3000"],
-    allow_credentials=True,
+    allow_origins=sorted(allowed_origins),
+    allow_origin_regex=settings.allowed_origin_regex,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

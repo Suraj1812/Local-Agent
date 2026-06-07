@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+
+# Build output
+.next/
+frontend/.next/
+dist/
+build/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+backend/.venv/
+
+# Local runtime data
+storage/
+backend/storage/
+*.sqlite
+*.sqlite3
+*.db
+
+# Local env and platform state
+.env
+.env.local
+.env.*.local
+.vercel/
+.railway/
+
+# Logs and OS files
+*.log
+.DS_Store
