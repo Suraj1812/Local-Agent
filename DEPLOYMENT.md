@@ -85,10 +85,15 @@ npm run build
 Production UI:
 
 - Light theme only
-- Chat-first screen with compact controls
+- Single agent command bar with compact icon controls
+- Flat invoice queue with contextual finance intelligence
+- Queue, exception, and agent views without decorative panels
 - Dynamic `/icon` app icon route
 - Metadata configured for title, description, app name, and Open Graph
 - Frontend requests have timeouts and user-friendly error messages
+
+The Vercel project is connected to `Suraj1812/Local-Agent`; pushes to `main`
+create production deployments automatically.
 
 ## Local Verification
 
@@ -113,6 +118,7 @@ The app never uses paid AI APIs. In a cloud deployment, the Railway backend cann
 Verified on June 7, 2026:
 
 - Vercel production deployment status: Ready
+- Vercel Git deployment source: `Suraj1812/Local-Agent` on `main`
 - Railway backend deployment status: Success
 - Railway health check returns `200`
 - CORS allows `https://firstai-local-agent.vercel.app`
