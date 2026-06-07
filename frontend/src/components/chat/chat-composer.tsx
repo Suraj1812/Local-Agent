@@ -20,8 +20,8 @@ export function ChatComposer() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="border-t bg-background/95 p-3 md:p-4">
-      <div className="mx-auto flex max-w-4xl gap-2">
+    <form onSubmit={onSubmit} className="shrink-0 border-t bg-card/95 p-3 md:p-4">
+      <div className="mx-auto flex max-w-4xl items-end gap-2">
         <Textarea
           value={goal}
           onChange={(event) => setGoal(event.target.value)}
@@ -31,8 +31,8 @@ export function ChatComposer() {
               event.currentTarget.form?.requestSubmit();
             }
           }}
-          placeholder="Enter a goal..."
-          className="min-h-14"
+          placeholder="Message FirstAI"
+          className="min-h-14 max-h-40 resize-none rounded-lg bg-background"
         />
         <Button type="submit" size="icon" disabled={isRunning || !goal.trim()} aria-label="Send goal">
           <SendHorizontal className="h-4 w-4" />

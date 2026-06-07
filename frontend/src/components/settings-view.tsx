@@ -125,17 +125,6 @@ export function SettingsView() {
             ))}
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Theme</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Select value={draft.theme} onChange={(event) => setDraft({ ...draft, theme: event.target.value as "dark" | "light" })}>
-              <option value="dark">dark</option>
-              <option value="light">light</option>
-            </Select>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );

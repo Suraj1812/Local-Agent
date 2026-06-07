@@ -11,7 +11,7 @@ class OllamaService:
         self.settings = get_settings()
 
     async def generate(self, prompt: str, model: Optional[str] = None, temperature: float = 0.4) -> str:
-        async with httpx.AsyncClient(timeout=120) as client:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(45, connect=8)) as client:
             response = await client.post(
                 f"{self.settings.ollama_host}/api/generate",
                 json={
@@ -40,7 +40,7 @@ class OllamaService:
     async def stream_generate(
         self, prompt: str, model: Optional[str] = None, temperature: float = 0.4
     ) -> AsyncGenerator[str, None]:
-        async with httpx.AsyncClient(timeout=None) as client:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(90, connect=8)) as client:
             async with client.stream(
                 "POST",
                 f"{self.settings.ollama_host}/api/generate",

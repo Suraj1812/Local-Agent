@@ -105,7 +105,7 @@ class AppSetting(Base):
     model = Column(String(120), nullable=False, default="llama3")
     temperature = Column(Float, nullable=False, default=0.4)
     memory_limit = Column(Integer, nullable=False, default=20)
-    theme = Column(String(32), nullable=False, default="dark")
+    theme = Column(String(32), nullable=False, default="light")
     tools_enabled_json = Column(Text, nullable=False, default="{}")
     agent_config_json = Column(Text, nullable=False, default="{}")
     updated_at = Column(

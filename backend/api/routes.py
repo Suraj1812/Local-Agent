@@ -1,7 +1,7 @@
 import json
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -19,6 +19,17 @@ from services.settings import get_settings
 from tools.registry import tool_registry
 
 router = APIRouter()
+
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+ALLOWED_UPLOAD_SUFFIXES = {".pdf", ".docx", ".txt", ".md", ".csv", ".json"}
+ALLOWED_UPLOAD_MIME_PARTS = {
+    "pdf",
+    "plain",
+    "markdown",
+    "json",
+    "csv",
+    "wordprocessingml",
+}
 
 
 @router.get("/health")
@@ -79,11 +90,22 @@ def documents(db: Session = Depends(get_db)):
 
 @router.post("/knowledge/upload")
 async def upload_knowledge(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    filename = (file.filename or "").strip()
+    suffix = f".{filename.rsplit('.', 1)[-1].lower()}" if "." in filename else ""
+    mime = (file.content_type or "").lower()
+    size = getattr(file, "size", None)
+
+    if not filename:
+        raise HTTPException(status_code=400, detail="File name is required")
+    if suffix not in ALLOWED_UPLOAD_SUFFIXES and not any(part in mime for part in ALLOWED_UPLOAD_MIME_PARTS):
+        raise HTTPException(status_code=400, detail="Unsupported file type")
+    if size is not None and size > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="File is too large")
     return await add_document(db, file)
 
 
 @router.get("/knowledge/search")
-def knowledge_search(q: str, db: Session = Depends(get_db)):
+def knowledge_search(q: str = Query(min_length=2, max_length=500), db: Session = Depends(get_db)):
     return search_knowledge(db, q)
 
 
@@ -101,18 +123,21 @@ def read_settings(db: Session = Depends(get_db)):
 @router.put("/settings")
 def update_settings(payload: SettingsIn, db: Session = Depends(get_db)):
     row = ensure_settings(db)
+    settings = get_settings()
     if payload.model is not None:
+        if payload.model not in settings.supported_models:
+            raise HTTPException(status_code=400, detail="Unsupported model")
         row.model = payload.model
     if payload.temperature is not None:
         row.temperature = payload.temperature
     if payload.memory_limit is not None:
         row.memory_limit = payload.memory_limit
     if payload.theme is not None:
-        row.theme = payload.theme
+        row.theme = "light"
     if payload.tools_enabled is not None:
-        row.tools_enabled_json = dumps(payload.tools_enabled)
+        row.tools_enabled_json = dumps({**DEFAULT_TOOLS, **payload.tools_enabled})
     if payload.agent_config is not None:
-        row.agent_config_json = dumps(payload.agent_config)
+        row.agent_config_json = dumps({**DEFAULT_AGENTS, **payload.agent_config})
     db.commit()
     current = settings_out(db)
     return {**current, "tools": tool_registry.list(current["tools_enabled"])}
@@ -128,7 +153,7 @@ def reset_settings(db: Session = Depends(get_db)):
     row.model = settings.default_model
     row.temperature = 0.4
     row.memory_limit = 20
-    row.theme = "dark"
+    row.theme = "light"
     row.tools_enabled_json = dumps(DEFAULT_TOOLS)
     row.agent_config_json = dumps(DEFAULT_AGENTS)
     db.commit()

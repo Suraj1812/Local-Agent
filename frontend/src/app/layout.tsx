@@ -13,8 +13,20 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "FirstAI Local Agent",
-  description: "Local-only agentic AI assistant with Ollama"
+  title: {
+    default: "FirstAI",
+    template: "%s | FirstAI"
+  },
+  description: "Fast local AI agent workspace with planning, memory, and file-aware chat.",
+  applicationName: "FirstAI",
+  icons: {
+    icon: "/icon"
+  },
+  openGraph: {
+    title: "FirstAI",
+    description: "Fast local AI agent workspace with planning, memory, and file-aware chat.",
+    type: "website"
+  }
 };
 
 export default function RootLayout({
@@ -23,7 +35,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} dark`}>
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body>{children}</body>
     </html>
   );

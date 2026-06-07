@@ -11,6 +11,7 @@ This project is split into two deployable services:
 - Backend: https://firstai-backend-production.up.railway.app
 - Backend health: https://firstai-backend-production.up.railway.app/api/health
 - GitHub: https://github.com/Suraj1812/Local-Agent
+- Custom domains: not configured
 
 ## Backend: Railway
 
@@ -42,6 +43,15 @@ Start command:
 uvicorn main:app --host 0.0.0.0 --port ${PORT}
 ```
 
+Production guardrails:
+
+- CORS allows the Vercel frontend and Vercel preview deployments
+- Security headers are added on every response
+- Heavy agent and upload paths have request limits
+- Goals, settings, search queries, and uploads are validated
+- Uploads are limited to readable PDF, DOCX, text, markdown, CSV, and JSON files up to 10 MB
+- Ollama waits are bounded so unreachable local models do not hang the service
+
 ## Frontend: Vercel
 
 Vercel uses `frontend/vercel.json`.
@@ -57,6 +67,14 @@ Build command:
 ```bash
 npm run build
 ```
+
+Production UI:
+
+- Light theme only
+- Chat-first screen with compact controls
+- Dynamic `/icon` app icon route
+- Metadata configured for title, description, app name, and Open Graph
+- Frontend requests have timeouts and user-friendly error messages
 
 ## Local Verification
 
@@ -84,6 +102,7 @@ Verified on June 7, 2026:
 - Railway backend deployment status: Success
 - Railway health check returns `200`
 - CORS allows `https://firstai-local-agent.vercel.app`
-- Frontend homepage returns `200`
+- Frontend homepage returns `200` and renders light-only UI
 - Backend settings, dashboard, knowledge, logs, conversations, and agent run endpoints respond
-- Agent fallback path works when cloud Ollama is not reachable
+- Agent streaming and fallback paths work when cloud Ollama is not reachable
+- Mobile viewport has no horizontal overflow

@@ -1,12 +1,25 @@
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+ALLOWED_TOOLS = {"calculator", "file", "code", "search"}
+ALLOWED_AGENTS = {"manager", "planner", "executor", "memory"}
 
 
 class GoalRequest(BaseModel):
-    goal: str = Field(min_length=1, max_length=5000)
-    conversation_id: Optional[int] = None
+    goal: str = Field(min_length=2, max_length=3000)
+    conversation_id: Optional[int] = Field(default=None, gt=0)
+
+    @field_validator("goal", mode="before")
+    @classmethod
+    def clean_goal(cls, value: str) -> str:
+        if not isinstance(value, str):
+            raise ValueError("Goal must be text")
+        cleaned = " ".join(value.strip().split())
+        if not cleaned:
+            raise ValueError("Goal cannot be empty")
+        return cleaned
 
 
 class AgentTask(BaseModel):
@@ -18,10 +31,10 @@ class AgentTask(BaseModel):
 class AgentActivity(BaseModel):
     current_goal: str
     current_task: Optional[str] = None
-    completed_tasks: List[Dict[str, Any]] = []
+    completed_tasks: List[Dict[str, Any]] = Field(default_factory=list)
     active_tool: Optional[str] = None
     execution_progress: int = 0
-    reasoning_steps: List[str] = []
+    reasoning_steps: List[str] = Field(default_factory=list)
     status: str = "idle"
 
 
@@ -39,7 +52,7 @@ class ConversationOut(BaseModel):
     title: str
     created_at: datetime
     updated_at: datetime
-    messages: List[MessageOut] = []
+    messages: List[MessageOut] = Field(default_factory=list)
 
 
 class AgentResponse(BaseModel):
@@ -50,12 +63,41 @@ class AgentResponse(BaseModel):
 
 
 class SettingsIn(BaseModel):
-    model: Optional[str] = None
+    model: Optional[str] = Field(default=None, min_length=1, max_length=80)
     temperature: Optional[float] = Field(default=None, ge=0, le=1)
     memory_limit: Optional[int] = Field(default=None, ge=5, le=100)
-    theme: Optional[str] = None
-    tools_enabled: Optional[Dict[str, bool]] = None
-    agent_config: Optional[Dict[str, bool]] = None
+    theme: Optional[Literal["light"]] = None
+    tools_enabled: Optional[Dict[str, bool]] = Field(default=None, max_length=20)
+    agent_config: Optional[Dict[str, bool]] = Field(default=None, max_length=20)
+
+    @field_validator("model", mode="before")
+    @classmethod
+    def clean_model(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        if not isinstance(value, str):
+            raise ValueError("Model must be text")
+        return value.strip()
+
+    @field_validator("tools_enabled")
+    @classmethod
+    def validate_tools(cls, value: Optional[Dict[str, bool]]) -> Optional[Dict[str, bool]]:
+        if value is None:
+            return value
+        unknown = set(value) - ALLOWED_TOOLS
+        if unknown:
+            raise ValueError(f"Unsupported tools: {', '.join(sorted(unknown))}")
+        return value
+
+    @field_validator("agent_config")
+    @classmethod
+    def validate_agents(cls, value: Optional[Dict[str, bool]]) -> Optional[Dict[str, bool]]:
+        if value is None:
+            return value
+        unknown = set(value) - ALLOWED_AGENTS
+        if unknown:
+            raise ValueError(f"Unsupported agents: {', '.join(sorted(unknown))}")
+        return value
 
 
 class SettingsOut(BaseModel):

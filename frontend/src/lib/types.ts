@@ -37,7 +37,7 @@ export type Settings = {
   model: string;
   temperature: number;
   memory_limit: number;
-  theme: "light" | "dark";
+  theme: "light";
   tools_enabled: Record<string, boolean>;
   agent_config: Record<string, boolean>;
   supported_models: string[];

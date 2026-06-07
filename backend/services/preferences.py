@@ -32,7 +32,7 @@ def ensure_settings(db: Session) -> AppSetting:
         model=settings.default_model,
         temperature=0.4,
         memory_limit=20,
-        theme="dark",
+        theme="light",
         tools_enabled_json=dumps(DEFAULT_TOOLS),
         agent_config_json=dumps(DEFAULT_AGENTS),
     )
@@ -49,7 +49,7 @@ def settings_out(db: Session) -> Dict:
         "model": row.model,
         "temperature": row.temperature,
         "memory_limit": row.memory_limit,
-        "theme": row.theme,
+        "theme": "light",
         "tools_enabled": loads(row.tools_enabled_json, DEFAULT_TOOLS),
         "agent_config": loads(row.agent_config_json, DEFAULT_AGENTS),
         "supported_models": settings.supported_models,

@@ -107,6 +107,25 @@ export const useAppStore = create<AppState>((set, get) => ({
       });
       const conversations = await api.conversations();
       set({ conversations });
+    } catch (error) {
+      const errorMessage: Message = {
+        id: Date.now() + 1,
+        conversation_id: current?.id || 0,
+        role: "assistant",
+        content: error instanceof Error ? error.message : "I could not complete that request.",
+        metadata: {},
+        created_at: new Date().toISOString()
+      };
+      set({
+        optimisticMessages: [tempMessage, errorMessage],
+        activity: {
+          ...emptyActivity(goal),
+          current_task: null,
+          execution_progress: 100,
+          reasoning_steps: ["Request failed"],
+          status: "failed"
+        }
+      });
     } finally {
       set({ isRunning: false });
     }

@@ -26,11 +26,14 @@ class ManagerAgent:
         async for event in self.run_events(db, goal, conversation_id):
             if event.get("type") == "final":
                 final_event = event["payload"]
+        if final_event is None:
+            raise RuntimeError("Agent did not produce a final response")
         return final_event
 
     async def run_events(
         self, db: Session, goal: str, conversation_id: Optional[int] = None
     ) -> AsyncGenerator[Dict[str, Any], None]:
+        goal = " ".join(goal.strip().split())
         settings = settings_out(db)
         conversation = ensure_conversation(db, conversation_id, goal)
         add_message(db, conversation.id, "user", goal)
@@ -92,16 +95,24 @@ class ManagerAgent:
                 },
             }
 
-            result = await self.executor.execute(task, context)
-            db_task.status = "completed"
+            try:
+                result = await self.executor.execute(task, context)
+                db_task.status = "completed"
+            except Exception as exc:
+                result = {
+                    "tool": None,
+                    "tool_result": {"error": str(exc)[:300]},
+                    "response": f"Task '{db_task.title}' could not complete: {str(exc)[:200]}",
+                }
+                db_task.status = "failed"
             db_task.result = result["response"]
             db.commit()
             task_results.append(result["response"])
-            completed_tasks.append({**task, "status": "completed", "tool": result["tool"]})
-            reasoning_steps.append(f"Completed: {task.get('title')}")
+            completed_tasks.append({**task, "status": db_task.status, "tool": result["tool"]})
+            reasoning_steps.append(f"{db_task.status.title()}: {task.get('title')}")
             log_event(
                 db,
-                "task_completed",
+                f"task_{db_task.status}",
                 db_task.title,
                 conversation_id=conversation.id,
                 metadata={"task_id": db_task.id, "tool": result["tool"]},
@@ -120,8 +131,12 @@ class ManagerAgent:
                 },
             }
 
-        self.memory.store_goal(db, goal, plan, task_results)
-        reasoning_steps.append("Memory updated")
+        try:
+            self.memory.store_goal(db, goal, plan, task_results)
+            reasoning_steps.append("Memory updated")
+        except Exception as exc:
+            reasoning_steps.append("Memory skipped")
+            log_event(db, "memory_error", str(exc)[:300], conversation_id=conversation.id)
         response = await self._final_answer(goal, plan, task_results, settings)
 
         activity = {

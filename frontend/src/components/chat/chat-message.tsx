@@ -12,8 +12,8 @@ export function ChatMessage({ message }: { message: Message }) {
     <article className={cn("flex", isUser ? "justify-end" : "justify-start")}>
       <div
         className={cn(
-          "max-w-[min(760px,90%)] rounded-lg border px-4 py-3 text-sm leading-6",
-          isUser ? "bg-primary text-primary-foreground" : "bg-card"
+          "max-w-[min(760px,92%)] text-sm leading-6",
+          isUser ? "rounded-lg bg-primary px-4 py-3 text-primary-foreground" : "px-1 py-2 text-foreground"
         )}
       >
         {isUser ? (
@@ -32,6 +32,11 @@ export function ChatMessage({ message }: { message: Message }) {
                 <code className={cn("rounded bg-secondary px-1 py-0.5 font-mono text-xs", className)} {...props}>
                   {children}
                 </code>
+              ),
+              pre: ({ children, ...props }) => (
+                <pre className="my-3 overflow-x-auto rounded-lg border bg-card p-3 text-xs" {...props}>
+                  {children}
+                </pre>
               )
             }}
           >

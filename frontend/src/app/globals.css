@@ -1,7 +1,5 @@
 @import "tailwindcss";
-@import "highlight.js/styles/github-dark.css";
-
-@custom-variant dark (&:is(.dark *));
+@import "highlight.js/styles/github.css";
 
 @theme inline {
   --font-sans: "Geist", "Geist Fallback", ui-sans-serif, system-ui, sans-serif;
@@ -27,45 +25,24 @@
 }
 
 :root {
-  --background: #f7f7f4;
-  --foreground: #1b1d20;
+  --background: #fbfaf7;
+  --foreground: #171717;
   --card: #ffffff;
-  --card-foreground: #1b1d20;
+  --card-foreground: #171717;
   --popover: #ffffff;
-  --popover-foreground: #1b1d20;
-  --primary: #0f766e;
-  --primary-foreground: #f8fffd;
-  --secondary: #ecebe4;
-  --secondary-foreground: #252525;
-  --muted: #ebe9e1;
-  --muted-foreground: #66645b;
-  --accent: #b45309;
-  --accent-foreground: #fff8ed;
-  --destructive: #be123c;
-  --border: #dedbd0;
-  --input: #d8d5cb;
-  --ring: #0f766e;
-}
-
-.dark {
-  --background: #111312;
-  --foreground: #f3f4ef;
-  --card: #181b1a;
-  --card-foreground: #f3f4ef;
-  --popover: #181b1a;
-  --popover-foreground: #f3f4ef;
-  --primary: #14b8a6;
-  --primary-foreground: #062321;
-  --secondary: #242724;
-  --secondary-foreground: #f0efe9;
-  --muted: #252823;
-  --muted-foreground: #a9aaa2;
-  --accent: #f59e0b;
-  --accent-foreground: #281800;
-  --destructive: #fb7185;
-  --border: #30352f;
-  --input: #3a3f38;
-  --ring: #2dd4bf;
+  --popover-foreground: #171717;
+  --primary: #0d766c;
+  --primary-foreground: #ffffff;
+  --secondary: #f0eee8;
+  --secondary-foreground: #25201b;
+  --muted: #f0eee8;
+  --muted-foreground: #6a6258;
+  --accent: #2563eb;
+  --accent-foreground: #ffffff;
+  --destructive: #b91c1c;
+  --border: #ded8cc;
+  --input: #d8d2c7;
+  --ring: #0d766c;
 }
 
 * {
@@ -81,6 +58,7 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
+  letter-spacing: 0;
 }
 
 button,
