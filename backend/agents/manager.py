@@ -174,6 +174,9 @@ class ManagerAgent:
         ]
         if self._requires_source_data(goal, useful_results):
             return self._missing_source_data_answer(goal)
+        direct_tool_answer = self._direct_tool_answer(goal, useful_results)
+        if direct_tool_answer:
+            return direct_tool_answer
 
         joined_results = "\n\n".join(useful_results) if useful_results else "No external tool context was needed."
         recent = json.dumps(conversation_context, default=str)[:1600]
@@ -202,7 +205,7 @@ Answer:
                 prompt,
                 model=settings["model"],
                 temperature=settings["temperature"],
-                num_predict=420,
+                num_predict=180,
             )
             cleaned = self._clean_response(response)
             return cleaned or "I could not produce a useful answer. Please try the question again."
@@ -236,6 +239,22 @@ Answer:
             lines.append(line)
             previous_blank = False
         return "\n".join(lines).strip()
+
+    @staticmethod
+    def _direct_tool_answer(goal: str, useful_results: List[str]) -> str:
+        if not useful_results:
+            return ""
+        lower = goal.lower()
+        if any(token in lower for token in ("calculate", "math", "percent", "ratio", "total", "+", "-", "*", "/", "%")):
+            for result in useful_results:
+                match = re.search(r"Calculated\s+(.+?)\s+=\s+([^\.\n]+(?:\.\d+)?)\.?$", result.strip())
+                if match:
+                    return f"The result is {match.group(2)}."
+        if any(token in lower for token in ("code", "function", "typescript", "javascript", "python", "react", "component")):
+            clean = "\n\n".join(useful_results).strip()
+            if clean and "could not complete" not in clean.lower():
+                return clean
+        return ""
 
     @staticmethod
     def _requires_source_data(goal: str, useful_results: List[str]) -> bool:

@@ -56,7 +56,9 @@ class ExecutorAgent:
         if isinstance(tool_result, dict) and tool_result.get("error"):
             response = f"The {tool_name} tool could not complete: {tool_result['error']}."
         elif tool_name == "calculator" and isinstance(tool_result, dict):
-            response = f"Calculated {tool_result.get('expression')} = {tool_result.get('result')}."
+            response = f"Calculated {tool_result.get('expression')} = {tool_result.get('display_result', tool_result.get('result'))}."
+        elif tool_name == "code" and isinstance(tool_result, dict) and tool_result.get("response"):
+            response = str(tool_result["response"]).strip()
         else:
             response = f"{tool_name} result: {tool_result}"
 

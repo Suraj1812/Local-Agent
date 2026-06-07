@@ -1,3 +1,4 @@
+import asyncio
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
 import httpx
@@ -9,6 +10,7 @@ from services.text_utils import extract_json
 class OllamaService:
     def __init__(self):
         self.settings = get_settings()
+        self._generate_lock = asyncio.Lock()
 
     @property
     def host(self) -> str:
@@ -70,18 +72,20 @@ class OllamaService:
         temperature: float = 0.4,
         num_predict: int = 240,
     ) -> str:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(120, connect=8, read=120)) as client:
-            response = await client.post(
-                f"{self.host}/api/generate",
-                json={
-                    "model": model or self.settings.default_model,
-                    "prompt": prompt,
-                    "stream": False,
-                    "options": {"temperature": temperature, "num_predict": num_predict, "num_ctx": 2048},
-                },
-            )
-            response.raise_for_status()
-            return response.json().get("response", "")
+        async with self._generate_lock:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(150, connect=8, read=150)) as client:
+                response = await client.post(
+                    f"{self.host}/api/generate",
+                    json={
+                        "model": model or self.settings.default_model,
+                        "prompt": prompt,
+                        "stream": False,
+                        "keep_alive": "10m",
+                        "options": {"temperature": temperature, "num_predict": num_predict, "num_ctx": 1024},
+                    },
+                )
+                response.raise_for_status()
+                return response.json().get("response", "")
 
     async def generate_json(
         self,

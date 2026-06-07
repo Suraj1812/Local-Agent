@@ -14,6 +14,12 @@ OPS = {
 }
 
 
+def format_number(value):
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value)
+
+
 def _eval(node):
     if isinstance(node, ast.Num):
         return node.n
@@ -39,9 +45,11 @@ class CalculatorTool:
             percent, base = percent_of.groups()
             expression = f"({percent}/100)*{base}"
             parsed = ast.parse(expression, mode="eval")
-            return {"expression": expression, "result": _eval(parsed.body)}
+            result = _eval(parsed.body)
+            return {"expression": expression, "result": result, "display_result": format_number(result)}
 
         match = re.search(r"[-+*/().\d\s%]+", raw_expression)
         expression = (match.group(0) if match else raw_expression).replace("%", "/100")
         parsed = ast.parse(expression, mode="eval")
-        return {"expression": expression, "result": _eval(parsed.body)}
+        result = _eval(parsed.body)
+        return {"expression": expression, "result": result, "display_result": format_number(result)}
