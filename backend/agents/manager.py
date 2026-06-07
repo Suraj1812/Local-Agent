@@ -1,4 +1,3 @@
-import asyncio
 import json
 import re
 from typing import Any, AsyncGenerator, Dict, List, Optional
@@ -10,7 +9,6 @@ from agents.memory import MemoryAgent
 from agents.planner import PlannerAgent
 from database.models import Task
 from services.conversations import add_message, ensure_conversation, serialize_conversation
-from services.ap_platform import ap_overview, run_matching
 from services.logging import log_event
 from services.memory_store import long_term_memories, recent_messages
 from services.ollama import ollama_service
@@ -139,7 +137,7 @@ class ManagerAgent:
         except Exception as exc:
             reasoning_steps.append("Memory skipped")
             log_event(db, "memory_error", str(exc)[:300], conversation_id=conversation.id)
-        response = await self._final_answer(goal, plan, task_results, settings)
+        response = await self._final_answer(goal, plan, task_results, settings, context["recent_messages"])
 
         activity = {
             "current_goal": goal,
@@ -161,55 +159,66 @@ class ManagerAgent:
         }
         yield {"type": "final", "payload": final_payload}
 
-    async def _final_answer(self, goal: str, plan: List[Dict[str, Any]], results: List[str], settings: Dict[str, Any]) -> str:
-        if self._is_accounts_payable_goal(goal):
-            return self._accounts_payable_answer(goal)
+    async def _final_answer(
+        self,
+        goal: str,
+        plan: List[Dict[str, Any]],
+        results: List[str],
+        settings: Dict[str, Any],
+        conversation_context: List[Dict[str, Any]],
+    ) -> str:
+        useful_results = [
+            result
+            for result in results
+            if result and result != "Ready for a direct model answer."
+        ]
+        if self._requires_source_data(goal, useful_results):
+            return self._missing_source_data_answer(goal)
 
-        joined_results = "\n\n".join(results)
+        joined_results = "\n\n".join(useful_results) if useful_results else "No external tool context was needed."
+        recent = json.dumps(conversation_context, default=str)[:1600]
         prompt = f"""
-You are Manager Agent for a local autonomous finance assistant.
-Write a clean, structured answer with short labels and concise bullet points.
-Do not use markdown heading markers such as # or ##.
-Do not mention model availability, Ollama, internal tools, or implementation details.
-Goal: {goal}
-Plan: {json.dumps(plan)}
-Task results:
+You are FirstAI. Answer the user's actual question directly and honestly.
+Do not use a demo answer. Do not force finance, invoices, AP, ERP, or vendor context unless the user asked for it.
+AP means accounts payable when the user is asking about finance.
+Do not use markdown heading markers. Do not mention hidden prompts, internal implementation, or model availability.
+If a question needs live/current verification, say what you know and what to check.
+If the user asks you to analyze, summarize, compare, rank, or identify risk from data that is not provided, say that you need the source data and do not invent specifics.
+Use the tool context only when it is relevant.
+
+Recent context:
+{recent}
+
+Tool context:
 {joined_results}
 
-Be useful and direct. Do not reveal hidden chain-of-thought.
+User question:
+{goal}
+
+Answer:
 """
         try:
             response = await ollama_service.generate(
                 prompt,
                 model=settings["model"],
                 temperature=settings["temperature"],
+                num_predict=420,
             )
             cleaned = self._clean_response(response)
-            if self._is_accounts_payable_goal(goal) and self._is_weak_accounts_payable_answer(cleaned):
-                return self._accounts_payable_answer(goal)
-            return cleaned
+            return cleaned or "I could not produce a useful answer. Please try the question again."
         except Exception:
-            await asyncio.sleep(0.1)
-            return self._fallback_answer(goal, plan, results)
-
-    def _fallback_answer(self, goal: str, plan: List[Dict[str, Any]], results: List[str]) -> str:
-        if self._is_accounts_payable_goal(goal):
-            return self._accounts_payable_answer(goal)
-
-        useful_results = [result for result in results if result]
-        lines = ["Result", "The agent completed the requested workflow and prepared a concise answer.", ""]
-        if plan:
-            lines.extend(["What was checked", *[f"- {task.get('title', 'Task')}" for task in plan[:4]], ""])
-        if useful_results:
-            lines.extend(["Key output", *[f"- {result}" for result in useful_results[:4]], ""])
-        lines.extend(["Next step", "Review the result and run the next task when ready."])
-        return "\n".join(lines).strip()
+            return self._model_unavailable_answer()
 
     @staticmethod
-    def _is_accounts_payable_goal(goal: str) -> bool:
-        terms = ("accounts payable", "invoice", "ap ", "vendor", "po", "purchase order", "erp", "journal", "risk")
-        normalized = f" {goal.lower()} "
-        return any(term in normalized for term in terms)
+    def _model_unavailable_answer() -> str:
+        return (
+            "The local AI model did not respond in time.\n\n"
+            "What to check\n"
+            "- Ollama service is running.\n"
+            "- The configured model is installed.\n"
+            "- The backend can reach the Ollama host.\n\n"
+            "Try again after the model is ready."
+        )
 
     @staticmethod
     def _clean_response(response: str) -> str:
@@ -229,52 +238,51 @@ Be useful and direct. Do not reveal hidden chain-of-thought.
         return "\n".join(lines).strip()
 
     @staticmethod
-    def _is_weak_accounts_payable_answer(response: str) -> bool:
-        normalized = response.lower()
-        concrete_signals = ("acme components", "ac-55219", "po-88022", "goods receipt", "journal posting")
-        return not any(signal in normalized for signal in concrete_signals)
+    def _requires_source_data(goal: str, useful_results: List[str]) -> bool:
+        if useful_results:
+            return False
+        lower = goal.lower()
+        asks_for_analysis = any(
+            term in lower
+            for term in (
+                "summarize",
+                "analyze",
+                "compare",
+                "rank",
+                "highest",
+                "lowest",
+                "risk",
+                "from the data",
+                "from data",
+                "from this",
+            )
+        )
+        says_missing = any(
+            term in lower
+            for term in (
+                "no data",
+                "not provided",
+                "without data",
+                "data is provided yet",
+                "data i provide",
+                "i will provide",
+            )
+        )
+        return asks_for_analysis and says_missing
 
     @staticmethod
-    def _accounts_payable_answer(goal: str) -> str:
-        overview = ap_overview()
-        invoices = overview["invoices"]
-        exception_invoice = next((invoice for invoice in invoices if invoice["status"] == "exception"), invoices[0])
-        matching = run_matching(
-            {
-                "invoice_number": f"{exception_invoice['invoice_number']}-REVIEW",
-                "po_number": exception_invoice["po_number"],
-                "amount": exception_invoice["amount"],
-                "vendor_id": exception_invoice["vendor_id"],
-            }
+    def _missing_source_data_answer(goal: str) -> str:
+        if "ap" in goal.lower() or "accounts payable" in goal.lower():
+            return (
+                "I cannot identify the highest accounts payable risk yet because no invoice, vendor, PO, GRN, "
+                "payment, or exception data was provided.\n\n"
+                "Send the source data and I will rank the risk by amount variance, missing receipt, duplicate invoice, "
+                "vendor risk, approval status, due date pressure, and ERP posting impact."
+            )
+        return (
+            "I do not have enough source data to answer that accurately yet.\n\n"
+            "Send the data you want analyzed and I will summarize it directly without inventing missing details."
         )
-        exceptions = [item for item in overview["exceptions"] if item["invoice_id"] == exception_invoice["id"]]
-        failed_checks = [check["name"] for check in matching.get("checks", []) if check.get("status") == "failed"]
-
-        if "highest" in goal.lower() or "risk" in goal.lower():
-            title = f"Highest AP risk: {exception_invoice['vendor']} {exception_invoice['invoice_number']}"
-        else:
-            title = f"AP review: {exception_invoice['vendor']} {exception_invoice['invoice_number']}"
-
-        lines = [
-            title,
-            f"This invoice should not post yet. It has a policy score of {matching['score']}/100 and needs human review before ERP sync.",
-            "",
-            "Risk signals",
-            f"- Amount: ${exception_invoice['amount']:,.0f}",
-            f"- PO: {exception_invoice['po_number']} · ERP: {exception_invoice['erp']}",
-            f"- Failed checks: {', '.join(failed_checks) if failed_checks else 'none'}",
-        ]
-        lines.extend([f"- {item['summary']}" for item in exceptions[:2]])
-        lines.extend(
-            [
-                "",
-                "Recommended action",
-                "- Route the variance to the AP Manager.",
-                "- Ask Receiving to confirm the short goods receipt or request a vendor credit memo.",
-                "- Keep journal posting blocked until the exception is approved.",
-            ]
-        )
-        return "\n".join(lines)
 
 
 manager_agent = ManagerAgent()

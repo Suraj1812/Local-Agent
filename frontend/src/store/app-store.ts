@@ -57,10 +57,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isRunning: false,
   loadInitial: async () => {
     const [conversations, settings] = await Promise.all([api.conversations(), api.settings()]);
-    set({ conversations, settings });
-    if (conversations[0]) {
-      await get().openConversation(conversations[0].id);
-    }
+    set({ conversations, settings, activeConversation: null, optimisticMessages: [], activity: null, plan: [] });
   },
   openConversation: async (id: number) => {
     const conversation = await api.conversation(id);

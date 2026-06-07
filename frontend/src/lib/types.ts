@@ -41,6 +41,7 @@ export type Settings = {
   tools_enabled: Record<string, boolean>;
   agent_config: Record<string, boolean>;
   supported_models: string[];
+  require_ollama?: boolean;
   tools?: Array<{ name: string; description: string; enabled: boolean }>;
 };
 

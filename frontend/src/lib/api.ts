@@ -21,6 +21,12 @@ async function responseError(response: Response): Promise<string> {
     if (typeof payload.detail === "string") {
       return payload.detail;
     }
+    if (payload.detail && typeof payload.detail === "object" && "message" in payload.detail) {
+      const message = (payload.detail as { message?: unknown }).message;
+      if (typeof message === "string") {
+        return message;
+      }
+    }
     if (Array.isArray(payload.detail)) {
       return "Please check your input and try again.";
     }

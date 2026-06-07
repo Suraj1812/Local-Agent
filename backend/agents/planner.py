@@ -1,43 +1,27 @@
 from typing import Any, Dict, List
 
-from services.ollama import ollama_service
-
 
 def fallback_plan(goal: str) -> List[Dict[str, Any]]:
     lower = goal.lower()
-    if is_accounts_payable_goal(goal):
+    if any(token in lower for token in ("calculate", "math", "percent", "ratio", "total", "+", "-", "*", "/", "%")):
         return [
-            {"id": 1, "title": "Review invoice risk signals", "priority": "high"},
-            {"id": 2, "title": "Check PO and receipt matching", "priority": "high"},
-            {"id": 3, "title": "Identify posting blockers", "priority": "medium"},
-            {"id": 4, "title": "Return AP recommendation", "priority": "medium"},
+            {"id": 1, "title": "Calculate the requested value", "priority": "high"},
+            {"id": 2, "title": "Explain the answer clearly", "priority": "medium"},
         ]
     if "code" in lower or "build" in lower or "login" in lower:
         return [
-            {"id": 1, "title": "Analyze the software request", "priority": "high"},
-            {"id": 2, "title": "Generate the UI and data flow", "priority": "high"},
-            {"id": 3, "title": "Add validation and edge cases", "priority": "medium"},
-            {"id": 4, "title": "Review and return final code", "priority": "medium"},
+            {"id": 1, "title": "Understand the software request", "priority": "high"},
+            {"id": 2, "title": "Generate the best practical answer", "priority": "high"},
         ]
-    if "research" in lower or "summarize" in lower:
+    if "knowledge" in lower or "uploaded" in lower or "document" in lower or "memory" in lower:
         return [
-            {"id": 1, "title": "Define the research scope", "priority": "high"},
-            {"id": 2, "title": "Search local knowledge", "priority": "high"},
-            {"id": 3, "title": "Synthesize findings", "priority": "medium"},
-            {"id": 4, "title": "Return summary", "priority": "medium"},
+            {"id": 1, "title": "Search available local context", "priority": "high"},
+            {"id": 2, "title": "Answer from the relevant evidence", "priority": "high"},
         ]
     return [
-        {"id": 1, "title": "Understand the goal", "priority": "high"},
-        {"id": 2, "title": "Create an ordered task list", "priority": "high"},
-        {"id": 3, "title": "Execute tasks with tools", "priority": "medium"},
-        {"id": 4, "title": "Evaluate and respond", "priority": "medium"},
+        {"id": 1, "title": "Understand the question", "priority": "high"},
+        {"id": 2, "title": "Answer with the local model", "priority": "high"},
     ]
-
-
-def is_accounts_payable_goal(goal: str) -> bool:
-    terms = ("accounts payable", "invoice", "ap ", "vendor", "po", "purchase order", "erp", "journal", "risk")
-    normalized = f" {goal.lower()} "
-    return any(term in normalized for term in terms)
 
 
 def normalize_plan(plan: Any, fallback: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -61,23 +45,4 @@ def normalize_plan(plan: Any, fallback: List[Dict[str, Any]]) -> List[Dict[str, 
 
 class PlannerAgent:
     async def plan(self, goal: str, context: Dict[str, Any]) -> List[Dict[str, Any]]:
-        fallback = fallback_plan(goal)
-        if is_accounts_payable_goal(goal):
-            return fallback
-        prompt = f"""
-You are Planner Agent in a local agentic AI system.
-Return only JSON, no prose. Create 3 to 6 tasks with id, title, priority.
-
-Goal:
-{goal}
-
-Relevant memory:
-{context.get("memories", [])}
-"""
-        result = await ollama_service.generate_json(
-            prompt,
-            fallback=fallback,
-            model=context["settings"]["model"],
-            temperature=context["settings"]["temperature"],
-        )
-        return normalize_plan(result, fallback)
+        return fallback_plan(goal)

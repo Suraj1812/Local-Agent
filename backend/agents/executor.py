@@ -2,31 +2,35 @@ import asyncio
 import re
 from typing import Any, Dict
 
-from services.ollama import ollama_service
 from tools.registry import tool_registry
 
 
 def select_tool(task: Dict[str, Any], goal: str) -> str:
     text = f"{goal} {task.get('title', '')}".lower()
     tokens = set(re.findall(r"[a-z0-9_+-]+", text))
-    if tokens & {"search", "research", "knowledge", "summarize", "summary"}:
+    if tokens & {"search", "knowledge", "document", "documents", "uploaded", "memory"}:
         return "search"
     if tokens & {"calculate", "calculation", "math", "stat", "stats", "statistics"}:
         return "calculator"
+    if re.search(r"\d+(?:\.\d+)?\s*%\s*(?:of|x|\*)\s*\d+(?:\.\d+)?", text):
+        return "calculator"
+    if re.search(r"\d+\s*[\+\-\*/%]\s*\d+", text):
+        return "calculator"
     if tokens & {"build", "code", "component", "generate", "login", "react", "typescript", "ui", "validation"}:
         return "code"
-    return "search"
-
-
-def is_accounts_payable_goal(goal: str) -> bool:
-    terms = ("accounts payable", "invoice", "ap ", "vendor", "po", "purchase order", "erp", "journal", "risk")
-    normalized = f" {goal.lower()} "
-    return any(term in normalized for term in terms)
+    return "model"
 
 
 class ExecutorAgent:
     async def execute(self, task: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
         tool_name = select_tool(task, context["goal"])
+        if tool_name == "model":
+            return {
+                "tool": None,
+                "tool_result": {"status": "direct_model_answer"},
+                "response": "Ready for a direct model answer.",
+            }
+
         try:
             tool = tool_registry.get(tool_name, context["settings"]["tools_enabled"])
         except Exception:
@@ -49,30 +53,11 @@ class ExecutorAgent:
         except Exception as exc:
             tool_result = {"error": str(exc)[:300], "status": "tool_failed"}
 
-        if is_accounts_payable_goal(context["goal"]):
-            return {
-                "tool": tool_name,
-                "tool_result": tool_result,
-                "response": f"Reviewed '{task.get('title')}' against AP matching and exception signals.",
-            }
-
-        prompt = f"""
-You are Executor Agent. Summarize the task result without exposing hidden chain-of-thought.
-Goal: {context["goal"]}
-Task: {task.get("title")}
-Tool: {tool_name}
-Tool result: {str(tool_result)[:2500]}
-"""
-        try:
-            response = await ollama_service.generate(
-                prompt,
-                model=context["settings"]["model"],
-                temperature=context["settings"]["temperature"],
-            )
-        except Exception:
-            if isinstance(tool_result, dict) and tool_result.get("error"):
-                response = f"Checked '{task.get('title')}'. The {tool_name} tool could not complete: {tool_result['error']}."
-            else:
-                response = f"Completed '{task.get('title')}' using the {tool_name} tool."
+        if isinstance(tool_result, dict) and tool_result.get("error"):
+            response = f"The {tool_name} tool could not complete: {tool_result['error']}."
+        elif tool_name == "calculator" and isinstance(tool_result, dict):
+            response = f"Calculated {tool_result.get('expression')} = {tool_result.get('result')}."
+        else:
+            response = f"{tool_name} result: {tool_result}"
 
         return {"tool": tool_name, "tool_result": tool_result, "response": response}

@@ -2,8 +2,8 @@
 
 This project is split into two deployable services:
 
-- `backend/`: FastAPI finance/AP API deployed on Railway
-- `frontend/`: Next.js AP automation command center deployed on Vercel
+- `backend/`: FastAPI local-agent API deployed on Railway
+- `frontend/`: Next.js clean Agentic AI chat deployed on Vercel
 
 Architecture docs:
 
@@ -121,9 +121,10 @@ npm run build
 Production UI:
 
 - Light theme only
-- Single agent command bar with compact icon controls
-- Flat invoice queue with contextual finance intelligence
-- Queue, exception, and agent views without decorative panels
+- Minimal one-screen agent chat
+- No dashboard header, logo block, invoice queue, finance brief, or decorative panels on the home screen
+- Real user prompts are sent directly to the backend without AP/demo prefixes
+- Assistant output is cleaned for readable paragraphs, lists, and code blocks without raw heading markers
 - Dynamic `/icon` app icon route
 - Metadata configured for title, description, app name, and Open Graph
 - Frontend requests have timeouts and user-friendly error messages
@@ -171,11 +172,12 @@ Verified on June 7, 2026:
 - Railway backend deployment status: Success
 - Railway health check returns `200`
 - CORS allows `https://firstai-local-agent.vercel.app`
-- Frontend homepage returns `200` and renders light-only UI
+- Frontend homepage returns `200` and renders a light-only minimal chat UI
 - Backend settings, dashboard, knowledge, logs, conversations, and agent run endpoints respond
 - `/api/health/ready` returns `ready` with `qwen2.5:0.5b` loaded through `ollama.railway.internal`
 - `/api/ollama/test` returns `OK.`
-- AP agent response returns structured invoice risk output with no raw markdown headings or fallback text
+- General questions are answered by Ollama through the backend with no AP demo response and no fallback warning text
+- Missing-source-data questions return a truthful request for source data instead of invented invoice/vendor specifics
 - Mobile viewport has no horizontal overflow
 
 Additional AP endpoints:

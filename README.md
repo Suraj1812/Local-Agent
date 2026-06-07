@@ -1,77 +1,64 @@
-# FirstAI AP Automation
+# FirstAI
 
-FirstAI is a local-first AI finance platform redesigned for Accounts Payable automation. It demonstrates invoice ingestion, invoice-to-PO matching, 2-way and 3-way matching, exception detection, journal preview, ERP sync readiness, audit-oriented data models, and specialized finance agents.
-
-The product direction is aligned with autonomous finance platforms such as Ledgent.AI: AI agents that understand documents, apply finance policy, resolve exceptions, and prepare ERP execution with auditability.
+FirstAI is a local-first Agentic AI workspace powered by Ollama. The home screen is intentionally minimal: ask anything, get a real model-backed answer, and avoid fake demo responses or noisy internal status text.
 
 ## Stack
 
-- Frontend: Next.js 15 App Router, TypeScript, Tailwind CSS, Zustand, shadcn-style UI primitives
-- Backend: Python, FastAPI, SQLite today with PostgreSQL target, SQLAlchemy, Pydantic
-- AI brain: Ollama with local models such as DeepSeek-R1, Llama 3, and Qwen
-- Agent framework: custom Manager, Planner, Executor, Memory, plus AP-specialized agent surfaces
-- Deployment: Vercel frontend and Railway backend
-
-## AP Modules
-
-- Invoice Upload
-- Invoice OCR and Document Intelligence
-- Vendor Management
-- Purchase Orders
-- Goods Receipts
-- Invoice Matching
-- Exception Center
-- Approval Workflows
-- Journal Entries
-- ERP Sync
-- Audit Logs
-- Analytics Dashboard
-- Agent Monitoring
+- Frontend: Next.js 15 App Router, TypeScript, Tailwind CSS, Zustand
+- Backend: Python, FastAPI, SQLAlchemy, Pydantic
+- Storage: SQLite locally, Railway volume in production
+- AI: Ollama with local/open-source models
+- Deployment: Vercel frontend, Railway backend, Railway Ollama service
 
 ## Local Setup
 
-Install Ollama and pull at least one model:
+Install Ollama and pull the lightweight default model:
 
 ```bash
-ollama pull llama3
+ollama pull qwen2.5:0.5b
 ```
 
-Install the app:
+Install and run the app:
 
 ```bash
 npm run install:all
-```
-
-Run both frontend and backend:
-
-```bash
 npm run dev
 ```
 
 - Frontend: http://localhost:3000
 - Backend: http://localhost:8000/api
+- Ollama: http://localhost:11434
+
+## Environment
+
+Use `.env.example` as the base. The important values are:
+
+```text
+OLLAMA_HOST=http://localhost:11434
+DEFAULT_MODEL=qwen2.5:0.5b
+REQUIRE_OLLAMA=false
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api
+```
+
+Production runs with `REQUIRE_OLLAMA=true`, so the backend only serves agent requests when the Ollama service and configured model are ready.
 
 ## Key API Endpoints
 
 ```text
 GET  /api/health
-GET  /api/ap/overview
-GET  /api/ap/invoices
-GET  /api/ap/agents
-POST /api/ap/matching/run
-GET  /api/ap/architecture
+GET  /api/health/ready
+GET  /api/ollama/test
 POST /api/agent/stream
+POST /api/agent/run
 POST /api/knowledge/upload
+GET  /api/settings
 ```
 
-## Architecture Docs
+## Behavior
 
-- `docs/ledgent-ap-platform.md`
-- `docs/ledgent-ap-github-issues.md`
+- General questions go through Ollama instead of fixed static responses.
+- Math-style prompts are routed through the calculator tool before the final answer.
+- Missing-source-data questions ask for the needed data instead of inventing vendor, invoice, or risk details.
+- The UI removes the old AP dashboard, metrics, logo block, side panels, and finance brief from the home screen.
 
-## Local-First Behavior
-
-- Conversations, tasks, memories, logs, and knowledge documents are stored locally.
-- PDF, DOCX, Markdown, CSV, JSON, and TXT uploads are parsed locally.
-- Knowledge search uses a lightweight local hashed embedding index.
-- If Ollama is not running, the app still works with deterministic fallback planning and execution.
+Deployment details live in `DEPLOYMENT.md`.

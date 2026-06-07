@@ -42,7 +42,7 @@ ALLOWED_UPLOAD_MIME_PARTS = {
 
 @router.get("/health")
 def health():
-    return {"status": "ok", "mode": "finance-ap", "service": "firstai-backend"}
+    return {"status": "ok", "mode": "local-agent", "service": "firstai-backend"}
 
 
 @router.get("/health/ready")
