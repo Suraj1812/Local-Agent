@@ -1,77 +1,70 @@
 "use client";
 
-import { ChangeEvent, ComponentType, FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import {
-  Activity,
   AlertTriangle,
-  BarChart3,
   Bot,
-  CheckCircle2,
-  Clock3,
-  Database,
-  FileCheck2,
-  FileText,
-  Link2,
+  Check,
+  ChevronRight,
+  CircleAlert,
+  FileUp,
   Loader2,
-  ShieldCheck,
-  UploadCloud
+  Play,
+  SendHorizontal
 } from "lucide-react";
 import { api } from "@/lib/api";
-import type { APMatchingResult, APOverview } from "@/lib/types";
+import type { APInvoice, APMatchingResult, APOverview } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app-store";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 
-const pipeline = [
-  "Invoice intake",
-  "OCR extraction",
-  "2/3-way match",
-  "Exception routing",
-  "Approval policy",
-  "ERP posting"
-];
+type View = "queue" | "exceptions" | "agents";
 
 function money(value: number) {
-  return new Intl.NumberFormat("en-US", { currency: "USD", maximumFractionDigits: 0, style: "currency" }).format(value);
-}
-
-function percent(value: number) {
-  return `${value.toFixed(1)}%`;
+  return new Intl.NumberFormat("en-US", {
+    currency: "USD",
+    maximumFractionDigits: 0,
+    style: "currency"
+  }).format(value);
 }
 
 function statusTone(status: string) {
-  if (["matched", "ready_to_post", "online", "posted", "auto_approved"].includes(status)) {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (["matched", "ready_to_post", "online", "posted", "auto_approved", "passed"].includes(status)) {
+    return "text-emerald-700";
   }
-  if (["exception", "reviewing", "draft"].includes(status)) {
-    return "border-amber-200 bg-amber-50 text-amber-700";
+  if (["exception", "reviewing", "draft", "failed"].includes(status)) {
+    return "text-amber-700";
   }
-  return "border-slate-200 bg-slate-50 text-slate-600";
+  return "text-muted-foreground";
 }
 
 export function APCommandCenter() {
   const [overview, setOverview] = useState<APOverview | null>(null);
   const [matching, setMatching] = useState<APMatchingResult | null>(null);
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
+  const [view, setView] = useState<View>("queue");
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [prompt, setPrompt] = useState("");
+  const [hasAsked, setHasAsked] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const sendGoal = useAppStore((state) => state.sendGoal);
   const isRunning = useAppStore((state) => state.isRunning);
   const conversation = useAppStore((state) => state.activeConversation);
+  const activity = useAppStore((state) => state.activity);
 
   useEffect(() => {
     let ignore = false;
     async function load() {
       try {
-        const [overviewPayload, matchingPayload] = await Promise.all([
-          api.apOverview(),
-          api.runAPMatching({ invoice_number: "AP-DEMO-NEW", po_number: "PO-88022", amount: 41720, vendor_id: "ven-1017" })
-        ]);
+        const payload = await api.apOverview();
+        const initial = payload.invoices.find((invoice) => invoice.status === "exception") || payload.invoices[0];
+        const result = await runInvoiceMatch(initial);
         if (!ignore) {
-          setOverview(overviewPayload);
-          setMatching(matchingPayload);
+          setOverview(payload);
+          setSelectedInvoiceId(initial?.id || null);
+          setMatching(result);
         }
       } finally {
         if (!ignore) {
@@ -85,10 +78,29 @@ export function APCommandCenter() {
     };
   }, []);
 
-  const latestAnswer = useMemo(
-    () => [...(conversation?.messages || [])].reverse().find((message) => message.role === "assistant")?.content,
-    [conversation]
-  );
+  const selectedInvoice =
+    overview?.invoices.find((invoice) => invoice.id === selectedInvoiceId) || overview?.invoices[0] || null;
+  const latestAnswer = [...(conversation?.messages || [])]
+    .reverse()
+    .find((message) => message.role === "assistant")?.content;
+
+  async function runInvoiceMatch(invoice?: APInvoice) {
+    if (!invoice) {
+      return null;
+    }
+    return api.runAPMatching({
+      invoice_number: `${invoice.invoice_number}-REVIEW`,
+      po_number: invoice.po_number,
+      amount: invoice.amount,
+      vendor_id: invoice.vendor_id
+    });
+  }
+
+  async function selectInvoice(invoice: APInvoice) {
+    setSelectedInvoiceId(invoice.id);
+    setMatching(null);
+    setMatching(await runInvoiceMatch(invoice));
+  }
 
   async function handleUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -98,7 +110,7 @@ export function APCommandCenter() {
     setUploading(true);
     try {
       await api.uploadDocument(file);
-      window.alert("Invoice document captured for extraction.");
+      window.alert("Invoice added to the extraction queue.");
     } catch (error) {
       window.alert(error instanceof Error ? error.message : "Upload failed");
     } finally {
@@ -107,9 +119,12 @@ export function APCommandCenter() {
     }
   }
 
-  async function runMatchingDemo() {
+  async function handleRunMatch() {
+    if (!selectedInvoice) {
+      return;
+    }
     setMatching(null);
-    setMatching(await api.runAPMatching({ invoice_number: "AP-DEMO-NEW", po_number: "PO-88022", amount: 41720, vendor_id: "ven-1017" }));
+    setMatching(await runInvoiceMatch(selectedInvoice));
   }
 
   async function askAgent(event: FormEvent) {
@@ -119,281 +134,262 @@ export function APCommandCenter() {
       return;
     }
     setPrompt("");
+    setHasAsked(true);
     await sendGoal(`Accounts payable finance agent task: ${clean}`);
   }
 
   if (loading || !overview) {
     return (
-      <div className="grid min-h-screen place-items-center bg-background text-sm text-muted-foreground">
-        <div className="flex items-center gap-2">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading AP control plane
-        </div>
-      </div>
+      <main className="grid min-h-screen place-items-center bg-background">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-label="Loading" />
+      </main>
     );
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-background text-foreground">
-      <header className="sticky top-0 z-10 border-b bg-card/95 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 md:px-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
-              <FileCheck2 className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="text-sm font-semibold">FirstAI AP</div>
-              <div className="text-xs text-muted-foreground">Autonomous finance execution</div>
-            </div>
+    <main className="min-h-screen overflow-x-hidden bg-background text-foreground">
+      <div className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur">
+        <form onSubmit={askAgent} className="mx-auto flex max-w-7xl items-center gap-2 px-3 py-3 md:px-5">
+          <Bot className={cn("h-4 w-4 shrink-0", isRunning ? "text-primary" : "text-muted-foreground")} />
+          <input
+            value={prompt}
+            onChange={(event) => setPrompt(event.target.value)}
+            placeholder="Ask about an invoice, exception, vendor, or posting"
+            className="h-9 min-w-0 flex-1 bg-transparent px-1 text-sm outline-none placeholder:text-muted-foreground"
+          />
+          <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">
+            {isRunning ? activity?.current_task || "Working" : `${overview.metrics.exceptions_open} needs review`}
+          </span>
+          <input ref={inputRef} type="file" className="hidden" onChange={handleUpload} />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Upload invoice"
+            title="Upload invoice"
+            onClick={() => inputRef.current?.click()}
+            disabled={uploading}
+          >
+            {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileUp className="h-4 w-4" />}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Run invoice match"
+            title="Run invoice match"
+            onClick={handleRunMatch}
+            disabled={!selectedInvoice || !matching}
+          >
+            {matching ? <Play className="h-4 w-4" /> : <Loader2 className="h-4 w-4 animate-spin" />}
+          </Button>
+          <Button type="submit" size="icon" aria-label="Ask finance agent" title="Ask finance agent" disabled={isRunning || !prompt.trim()}>
+            {isRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <SendHorizontal className="h-4 w-4" />}
+          </Button>
+        </form>
+        {isRunning && <Progress value={activity?.execution_progress || 5} className="h-0.5 rounded-none" />}
+      </div>
+
+      <div className="mx-auto max-w-7xl px-3 md:px-5">
+        <div className="grid grid-cols-2 border-b py-3 sm:grid-cols-4">
+          <Metric label="Exposure" value={money(overview.metrics.payable_exposure)} />
+          <Metric label="No-touch" value={`${overview.metrics.straight_through_rate.toFixed(1)}%`} />
+          <Metric label="Accuracy" value={`${overview.metrics.match_accuracy.toFixed(1)}%`} />
+          <Metric label="Cycle" value={`${overview.metrics.avg_cycle_time_hours}h`} />
+        </div>
+
+        <div className="flex items-center justify-between border-b py-2">
+          <div className="flex items-center gap-1">
+            {(["queue", "exceptions", "agents"] as const).map((item) => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => setView(item)}
+                className={cn(
+                  "rounded-md px-2.5 py-1.5 text-xs capitalize transition",
+                  view === item ? "bg-secondary font-medium text-foreground" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {item}
+                {item === "exceptions" && <span className="ml-1 text-amber-700">{overview.exceptions.length}</span>}
+              </button>
+            ))}
           </div>
-          <div className="flex items-center gap-2">
-            <input ref={inputRef} type="file" className="hidden" onChange={handleUpload} />
-            <Button variant="outline" onClick={() => inputRef.current?.click()} disabled={uploading}>
-              {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
-              Upload invoice
-            </Button>
-            <Button onClick={runMatchingDemo}>
-              <ShieldCheck className="h-4 w-4" />
-              Run match
-            </Button>
+          <div className="hidden text-xs text-muted-foreground sm:block">
+            {overview.systems.join(" · ")}
           </div>
         </div>
-      </header>
 
-      <main className="mx-auto grid min-w-0 max-w-7xl gap-4 px-4 py-4 md:px-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <section className="min-w-0 space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <Metric label="Invoice volume" value={overview.metrics.invoice_volume.toString()} detail="active AP queue" icon={FileText} />
-            <Metric label="Payable exposure" value={money(overview.metrics.payable_exposure)} detail="pending liability" icon={Database} />
-            <Metric label="Straight-through" value={percent(overview.metrics.straight_through_rate)} detail="no-touch rate" icon={Activity} />
-            <Metric label="Match accuracy" value={percent(overview.metrics.match_accuracy)} detail="policy checked" icon={BarChart3} />
-          </div>
-
-          <div className="rounded-lg border bg-card p-4">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h1 className="text-lg font-semibold">Invoice-to-ERP execution pipeline</h1>
-                <p className="text-sm text-muted-foreground">Document intelligence, matching, exceptions, approvals, journals, and ERP sync.</p>
-              </div>
-              <div className="rounded-full border bg-background px-3 py-1 text-xs text-muted-foreground">
-                SAP · NetSuite · Dynamics · QuickBooks
-              </div>
-            </div>
-            <div className="grid gap-2 md:grid-cols-6">
-              {pipeline.map((step, index) => (
-                <div key={step} className="rounded-md border bg-background p-3">
-                  <div className="mb-3 flex items-center justify-between text-xs text-muted-foreground">
-                    <span>0{index + 1}</span>
-                    {index < 3 ? <CheckCircle2 className="h-4 w-4 text-primary" /> : <Clock3 className="h-4 w-4 text-amber-600" />}
-                  </div>
-                  <div className="text-sm font-medium">{step}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
-            <div className="min-w-0 rounded-lg border bg-card">
-              <div className="flex items-center justify-between border-b px-4 py-3">
-                <div>
-                  <h2 className="text-sm font-semibold">Invoice work queue</h2>
-                  <p className="text-xs text-muted-foreground">Prioritized by due date, policy risk, and ERP readiness.</p>
-                </div>
-                <span className="text-xs text-muted-foreground">{overview.metrics.exceptions_open} exceptions</span>
-              </div>
+        <div className="grid min-w-0 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <section className="min-w-0 py-2 lg:pr-5">
+            {view === "queue" && (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[720px] text-left text-sm">
-                  <thead className="border-b bg-secondary/60 text-xs text-muted-foreground">
+                <table className="w-full min-w-[680px] text-left text-sm">
+                  <thead className="text-xs text-muted-foreground">
                     <tr>
-                      <th className="px-4 py-2 font-medium">Invoice</th>
-                      <th className="px-4 py-2 font-medium">Vendor</th>
-                      <th className="px-4 py-2 font-medium">Match</th>
-                      <th className="px-4 py-2 font-medium">Amount</th>
-                      <th className="px-4 py-2 font-medium">ERP</th>
-                      <th className="px-4 py-2 font-medium">Status</th>
+                      <th className="px-2 py-2 font-medium">Invoice</th>
+                      <th className="px-2 py-2 font-medium">Vendor</th>
+                      <th className="px-2 py-2 font-medium">PO</th>
+                      <th className="px-2 py-2 font-medium">Amount</th>
+                      <th className="px-2 py-2 font-medium">ERP</th>
+                      <th className="px-2 py-2 font-medium">State</th>
+                      <th className="w-7" />
                     </tr>
                   </thead>
                   <tbody>
                     {overview.invoices.map((invoice) => (
-                      <tr key={invoice.id} className="border-b last:border-0">
-                        <td className="px-4 py-3 font-medium">{invoice.invoice_number}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{invoice.vendor}</td>
-                        <td className="px-4 py-3">{invoice.match_type}</td>
-                        <td className="px-4 py-3">{money(invoice.amount)}</td>
-                        <td className="px-4 py-3">{invoice.erp}</td>
-                        <td className="px-4 py-3">
-                          <span className={cn("rounded-full border px-2 py-1 text-xs", statusTone(invoice.status))}>
-                            {invoice.status.replaceAll("_", " ")}
-                          </span>
+                      <tr
+                        key={invoice.id}
+                        onClick={() => selectInvoice(invoice)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            selectInvoice(invoice);
+                          }
+                        }}
+                        role="button"
+                        tabIndex={0}
+                        className={cn(
+                          "cursor-pointer border-t outline-none transition hover:bg-secondary/50 focus-visible:bg-secondary focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                          invoice.id === selectedInvoice?.id && "bg-secondary/70"
+                        )}
+                      >
+                        <td className="px-2 py-3 font-mono text-xs font-medium">{invoice.invoice_number}</td>
+                        <td className="px-2 py-3">{invoice.vendor}</td>
+                        <td className="px-2 py-3 font-mono text-xs text-muted-foreground">{invoice.po_number}</td>
+                        <td className="px-2 py-3 tabular-nums">{money(invoice.amount)}</td>
+                        <td className="px-2 py-3 text-muted-foreground">{invoice.erp}</td>
+                        <td className={cn("px-2 py-3 text-xs capitalize", statusTone(invoice.status))}>
+                          {invoice.status.replaceAll("_", " ")}
+                        </td>
+                        <td className="pr-1">
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            </div>
+            )}
 
-            <div className="rounded-lg border bg-card p-4">
-              <div className="mb-3 flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-amber-600" />
-                <h2 className="text-sm font-semibold">Exception center</h2>
-              </div>
-              <div className="space-y-3">
-                {overview.exceptions.map((item) => (
-                  <div key={item.id} className="rounded-md border bg-background p-3">
-                    <div className="mb-2 flex items-center justify-between gap-2">
-                      <span className={cn("rounded-full border px-2 py-1 text-xs", statusTone("exception"))}>
-                        {item.severity}
-                      </span>
-                      <span className="text-xs text-muted-foreground">{item.owner}</span>
-                    </div>
-                    <div className="text-sm font-medium">{item.summary}</div>
-                    <p className="mt-2 text-xs leading-5 text-muted-foreground">{item.next_action}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-lg border bg-card p-4">
-            <div className="mb-4 flex items-center justify-between">
+            {view === "exceptions" && (
               <div>
-                <h2 className="text-sm font-semibold">Finance AI workforce</h2>
-                <p className="text-xs text-muted-foreground">Specialized agents with deterministic policy constraints and audit traces.</p>
-              </div>
-              <Bot className="h-4 w-4 text-primary" />
-            </div>
-            <div className="grid gap-3 md:grid-cols-3">
-              {overview.agents.map((agent) => (
-                <div key={agent.name} className="rounded-md border bg-background p-3">
-                  <div className="mb-2 flex items-center justify-between gap-2">
-                    <div className="text-sm font-medium">{agent.name}</div>
-                    <span className={cn("rounded-full border px-2 py-0.5 text-xs", statusTone(agent.status))}>
-                      {agent.status}
-                    </span>
-                  </div>
-                  <p className="min-h-12 text-xs leading-5 text-muted-foreground">{agent.focus}</p>
-                  <div className="mt-3 text-xs text-muted-foreground">{agent.last_run}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <aside className="min-w-0 space-y-4">
-          <div className="rounded-lg border bg-card p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold">3-way matching result</h2>
-              <span className={cn("rounded-full border px-2 py-1 text-xs", statusTone(matching?.status || ""))}>
-                {matching?.status?.replaceAll("_", " ") || "running"}
-              </span>
-            </div>
-            <Progress value={matching?.score || 0} className="mb-3 h-1.5" />
-            <div className="mb-3 text-3xl font-semibold">{matching?.score || 0}</div>
-            <div className="space-y-2">
-              {(matching?.checks || []).map((check) => (
-                <div key={check.name} className="flex items-center justify-between gap-2 text-sm">
-                  <span className="text-muted-foreground">{check.name}</span>
-                  <span className={check.status === "passed" ? "text-primary" : "text-amber-700"}>{check.status}</span>
-                </div>
-              ))}
-            </div>
-            {!!matching?.exceptions.length && (
-              <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-800">
-                {matching.exceptions[0].message}
-              </div>
-            )}
-            {matching?.recommendation && (
-              <div className="mt-3 rounded-md border bg-background p-3 text-sm">
-                <span className="text-muted-foreground">Recommendation: </span>
-                <span className="font-medium">{matching.recommendation}</span>
-              </div>
-            )}
-          </div>
-
-          <div className="rounded-lg border bg-card p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <Link2 className="h-4 w-4 text-primary" />
-              <h2 className="text-sm font-semibold">ERP sync</h2>
-            </div>
-            <div className="space-y-3">
-              {overview.systems.map((system) => (
-                <div key={system} className="flex items-center justify-between rounded-md border bg-background px-3 py-2 text-sm">
-                  <span>{system}</span>
-                  <span className="text-xs text-muted-foreground">connector ready</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-lg border bg-card p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <Database className="h-4 w-4 text-primary" />
-              <h2 className="text-sm font-semibold">Journal preview</h2>
-            </div>
-            {overview.journal_entries.map((entry) => (
-              <div key={entry.id} className="mb-3 rounded-md border bg-background p-3 last:mb-0">
-                <div className="mb-2 flex items-center justify-between text-xs">
-                  <span className="font-medium">{entry.erp}</span>
-                  <span className={cn("rounded-full border px-2 py-0.5", statusTone(entry.status))}>{entry.status}</span>
-                </div>
-                {entry.lines.map((line) => (
-                  <div key={`${entry.id}-${line.account}`} className="flex justify-between text-xs text-muted-foreground">
-                    <span>GL {line.account}</span>
-                    <span>{money(line.debit || line.credit)}</span>
+                {overview.exceptions.map((item) => (
+                  <div key={item.id} className="grid gap-2 border-b px-2 py-4 sm:grid-cols-[100px_1fr_130px]">
+                    <div className="flex items-start gap-2 text-xs font-medium text-amber-700">
+                      <AlertTriangle className="h-4 w-4 shrink-0" />
+                      {item.severity}
+                    </div>
+                    <div>
+                      <div className="text-sm">{item.summary}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">{item.next_action}</div>
+                    </div>
+                    <div className="text-xs text-muted-foreground sm:text-right">{item.owner}</div>
                   </div>
                 ))}
               </div>
-            ))}
-          </div>
+            )}
 
-          <div className="rounded-lg border bg-card p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <Bot className="h-4 w-4 text-primary" />
-              <h2 className="text-sm font-semibold">Finance agent</h2>
-            </div>
-            <form onSubmit={askAgent} className="flex gap-2">
-              <input
-                value={prompt}
-                onChange={(event) => setPrompt(event.target.value)}
-                placeholder="Ask about AP risk"
-                className="min-w-0 flex-1 rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
-              />
-              <Button type="submit" size="icon" disabled={isRunning || !prompt.trim()} aria-label="Ask finance agent">
-                {isRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bot className="h-4 w-4" />}
-              </Button>
-            </form>
-            {latestAnswer && (
-              <div className="mt-3 max-h-40 overflow-auto rounded-md border bg-background p-3 text-xs leading-5 text-muted-foreground">
-                {latestAnswer}
+            {view === "agents" && (
+              <div>
+                {overview.agents.map((agent) => (
+                  <div key={agent.name} className="grid gap-2 border-b px-2 py-3 sm:grid-cols-[180px_1fr_80px]">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <span className={cn("h-1.5 w-1.5 rounded-full", agent.status === "online" ? "bg-emerald-500" : "bg-amber-500")} />
+                      {agent.name}
+                    </div>
+                    <div className="text-xs leading-5 text-muted-foreground">{agent.focus}</div>
+                    <div className="text-xs text-muted-foreground sm:text-right">{agent.last_run}</div>
+                  </div>
+                ))}
               </div>
             )}
-          </div>
-        </aside>
-      </main>
+
+            {hasAsked && latestAnswer && (
+              <div className="border-t px-2 py-4">
+                <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
+                  <Bot className="h-3.5 w-3.5" />
+                  Agent response
+                </div>
+                <div className="max-h-56 overflow-auto whitespace-pre-wrap text-sm leading-6">{latestAnswer}</div>
+              </div>
+            )}
+          </section>
+
+          <aside className="border-t py-4 lg:border-l lg:border-t-0 lg:pl-5">
+            {selectedInvoice && (
+              <>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="font-mono text-xs text-muted-foreground">{selectedInvoice.invoice_number}</div>
+                    <div className="mt-1 text-base font-medium">{selectedInvoice.vendor}</div>
+                  </div>
+                  <div className={cn("text-xs capitalize", statusTone(selectedInvoice.status))}>
+                    {selectedInvoice.status.replaceAll("_", " ")}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-y-4 border-b py-5 text-sm">
+                  <Data label="Amount" value={money(selectedInvoice.amount)} />
+                  <Data label="Confidence" value={`${Math.round(selectedInvoice.confidence * 100)}%`} />
+                  <Data label="Purchase order" value={selectedInvoice.po_number} mono />
+                  <Data label="Match" value={selectedInvoice.match_type} />
+                  <Data label="Due" value={selectedInvoice.due_date} />
+                  <Data label="Target" value={selectedInvoice.erp} />
+                </div>
+
+                <div className="border-b py-5">
+                  <div className="mb-3 flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Policy score</span>
+                    <span className="font-mono text-sm font-medium">{matching?.score ?? "..."}</span>
+                  </div>
+                  <Progress value={matching?.score || 0} className="mb-4 h-1" />
+                  <div className="space-y-2.5">
+                    {(matching?.checks || []).map((check) => (
+                      <div key={check.name} className="flex items-center justify-between gap-3 text-xs">
+                        <span className="text-muted-foreground">{check.name}</span>
+                        {check.status === "passed" ? (
+                          <Check className="h-4 w-4 text-emerald-600" aria-label="Passed" />
+                        ) : (
+                          <CircleAlert className="h-4 w-4 text-amber-600" aria-label="Failed" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="py-5">
+                  <div className="text-sm font-medium">{matching?.recommendation || "Analyzing invoice"}</div>
+                  {!!matching?.exceptions.length && (
+                    <div className="mt-2 text-xs leading-5 text-amber-800">{matching.exceptions[0].message}</div>
+                  )}
+                  <div className="mt-4 text-xs leading-5 text-muted-foreground">
+                    AI may recommend and draft. Exceptions require human approval before posting.
+                  </div>
+                </div>
+              </>
+            )}
+          </aside>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="border-l px-3 first:border-l-0 sm:px-4">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="mt-1 font-mono text-lg font-medium tabular-nums">{value}</div>
     </div>
   );
 }
 
-function Metric({
-  detail,
-  icon: Icon,
-  label,
-  value
-}: {
-  detail: string;
-  icon: ComponentType<{ className?: string }>;
-  label: string;
-  value: string;
-}) {
+function Data({ label, mono, value }: { label: string; mono?: boolean; value: string }) {
   return (
-    <div className="rounded-lg border bg-card p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <span className="text-xs font-medium text-muted-foreground">{label}</span>
-        <Icon className="h-4 w-4 text-primary" />
-      </div>
-      <div className="text-2xl font-semibold">{value}</div>
-      <div className="mt-1 text-xs text-muted-foreground">{detail}</div>
+    <div>
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className={cn("mt-1 text-sm", mono && "font-mono text-xs")}>{value}</div>
     </div>
   );
 }
