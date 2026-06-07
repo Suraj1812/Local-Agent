@@ -9,20 +9,19 @@ class CodeTool:
 
     async def execute(self, payload: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
         goal = " ".join(str(context.get("goal", "")).strip().split())[:1200]
-        task = " ".join(str(payload.get("task", "")).strip().split())[:600]
+        task = " ".join(str(payload.get("task", "")).strip().split())[:300]
         prompt = f"""
-You are a local Code Agent. Use no paid services.
 Goal: {goal}
 Task: {task}
-Operation: {payload.get("operation", "generate")}
 
-Return concise markdown with useful code when relevant.
+Return concise, usable code. No extra explanation unless needed.
 """
         try:
             response = await ollama_service.generate(
                 prompt,
                 model=context["settings"]["model"],
                 temperature=context["settings"]["temperature"],
+                num_predict=120,
             )
             return {"response": response}
         except Exception as exc:

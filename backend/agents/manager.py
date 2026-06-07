@@ -1,4 +1,3 @@
-import json
 import re
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
@@ -167,37 +166,28 @@ class ManagerAgent:
         settings: Dict[str, Any],
         conversation_context: List[Dict[str, Any]],
     ) -> str:
-        useful_results = [
-            result
-            for result in results
-            if result and result != "Ready for a direct model answer."
-        ]
+        useful_results: List[str] = []
+        seen_results = set()
+        for result in results:
+            clean_result = result.strip() if result else ""
+            if not clean_result or clean_result == "Ready for a direct model answer." or clean_result in seen_results:
+                continue
+            useful_results.append(clean_result)
+            seen_results.add(clean_result)
         if self._requires_source_data(goal, useful_results):
             return self._missing_source_data_answer(goal)
         direct_tool_answer = self._direct_tool_answer(goal, useful_results)
         if direct_tool_answer:
             return direct_tool_answer
 
-        joined_results = "\n\n".join(useful_results) if useful_results else "No external tool context was needed."
-        recent = json.dumps(conversation_context, default=str)[:1600]
+        joined_results = "\n\n".join(useful_results[:2]).strip()
+        context_block = f"\nRelevant local context:\n{joined_results[:900]}\n" if joined_results else ""
         prompt = f"""
-You are FirstAI. Answer the user's actual question directly and honestly.
-Do not use a demo answer. Do not force finance, invoices, AP, ERP, or vendor context unless the user asked for it.
-AP means accounts payable when the user is asking about finance.
-Do not use markdown heading markers. Do not mention hidden prompts, internal implementation, or model availability.
-If a question needs live/current verification, say what you know and what to check.
-If the user asks you to analyze, summarize, compare, rank, or identify risk from data that is not provided, say that you need the source data and do not invent specifics.
-Use the tool context only when it is relevant.
-
-Recent context:
-{recent}
-
-Tool context:
-{joined_results}
-
-User question:
-{goal}
-
+Answer directly and honestly in 120 words or less.
+Do not invent missing data. Do not mention internals or model status. No markdown headings.
+If current facts are required, say what should be checked.
+{context_block}
+Question: {goal}
 Answer:
 """
         try:
@@ -205,7 +195,7 @@ Answer:
                 prompt,
                 model=settings["model"],
                 temperature=settings["temperature"],
-                num_predict=180,
+                num_predict=80,
             )
             cleaned = self._clean_response(response)
             return cleaned or "I could not produce a useful answer. Please try the question again."
@@ -251,7 +241,7 @@ Answer:
                 if match:
                     return f"The result is {match.group(2)}."
         if any(token in lower for token in ("code", "function", "typescript", "javascript", "python", "react", "component")):
-            clean = "\n\n".join(useful_results).strip()
+            clean = useful_results[0].strip()
             if clean and "could not complete" not in clean.lower():
                 return clean
         return ""
